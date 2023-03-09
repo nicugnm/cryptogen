@@ -9,3 +9,8 @@ type CryptoMetadata struct {
 	Rank               int64     `json:"rank"`
 	LastHistoricalData time.Time `json:"last_historical_data"`
 }
+
+type CryptoRequest struct {
+	Status interface{}       `json:"status"`
+	Data   []*CryptoMetadata `json:"data"`
+}

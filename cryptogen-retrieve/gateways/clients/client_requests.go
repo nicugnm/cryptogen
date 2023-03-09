@@ -1,6 +1,10 @@
 package clients
 
 import (
+	"cryptogen-retrieve/domain"
+	"cryptogen-retrieve/gateways/repositories"
+	"encoding/json"
+	"fmt"
 	"github.com/joho/godotenv"
 	"io"
 	"log"
@@ -29,9 +33,11 @@ func Request(nb chan NonBlocking) {
 	//q.Add("convert", "USD")
 
 	godotenv_err := godotenv.Load()
+
 	if godotenv_err != nil {
 		log.Fatal("Error loading .env file")
 	}
+
 	apiKey := os.Getenv("API_KEY")
 
 	req.Header.Set("Accepts", "application/json")
@@ -52,9 +58,7 @@ func HandleResponse(nb chan NonBlocking, wg *sync.WaitGroup) {
 			log.Println(get.Error)
 		}
 
-		log.Println("------DATA------")
 		log.Println(get.Response.Status)
-		log.Println("=======")
 		respBody, _ := io.ReadAll(get.Response.Body)
 
 		dir := "data_to_file"
@@ -65,8 +69,19 @@ func HandleResponse(nb chan NonBlocking, wg *sync.WaitGroup) {
 
 		os.WriteFile(fileName, respBody, 0666)
 
-		//fmt.Println(string(respBody))
-		log.Println("------DATA------")
+		m := domain.CryptoRequest{}
+		err := json.Unmarshal(respBody, &m)
+
+		if err != nil {
+			fmt.Errorf("Error during unmarshall %x", err)
+		}
+
+		redisRepository := repositories.NewRedisRepo()
+		redisErr := redisRepository.SaveDataList(m.Data)
+
+		if err != nil {
+			fmt.Errorf("Error during saving data in redis %x", redisErr)
+		}
 
 		wg.Done()
 	}

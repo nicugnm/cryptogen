@@ -11,20 +11,60 @@ import (
 )
 
 const (
-	queueName      = "cryptogen-retrieve:crypto_queue"
-	dbKey          = "cryptogen-retrieve:crypto_key"
-	workers        = 50 // Number of worker goroutines
+	queueName      = "crypto_queue"
+	dbKey          = "crypto_key"
+	workers        = 5 // Number of worker goroutines
 	redisUrl       = "localhost:6379"
 	connectionType = "tcp"
 )
 
-func pushData(metadata domain.CryptoMetadata) {
-	// Create Redis connection pool
-	pool := &redis.Pool{
-		Dial: func() (redis.Conn, error) {
-			return redis.Dial(connectionType, redisUrl)
+type RedisRepo struct {
+	redisPool *redis.Pool
+}
+
+var _ domain.CryptoMetadataStorage = (*RedisRepo)(nil)
+
+func NewRedisRepo() *RedisRepo {
+	return &RedisRepo{
+		redisPool: &redis.Pool{
+			Dial: func() (redis.Conn, error) {
+				return redis.Dial(connectionType, redisUrl)
+			},
 		},
 	}
+}
+
+func (r RedisRepo) SaveData(metadata *domain.CryptoMetadata) error {
+	pool := r.redisPool
+
+	// Create a wait group to wait for all workers to finish
+	var wg sync.WaitGroup
+
+	// Start worker goroutines
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go worker(pool, &wg)
+	}
+
+	// Push data to Redis queue
+	conn := pool.Get()
+	defer conn.Close()
+	_, err := conn.Do("LPUSH", queueName, metadata)
+	if err != nil {
+		fmt.Println("Error pushing data to Redis queue:", err)
+		return err
+	}
+
+	// Wait for all workers to finish
+	wg.Wait()
+
+	fmt.Println("All workers finished")
+
+	return nil
+}
+
+func (r RedisRepo) SaveDataList(metadataList []*domain.CryptoMetadata) error {
+	pool := r.redisPool
 
 	// Create a wait group to wait for all workers to finish
 	var wg sync.WaitGroup
@@ -39,16 +79,20 @@ func pushData(metadata domain.CryptoMetadata) {
 	conn := pool.Get()
 	defer conn.Close()
 
-	_, err := conn.Do("LPUSH", queueName, metadata)
-	if err != nil {
-		fmt.Println("Error pushing data to Redis queue:", err)
-		return
+	for _, metadata := range metadataList {
+		_, err := conn.Do("LPUSH", queueName, metadata)
+		if err != nil {
+			fmt.Println("Error pushing data to Redis queue:", err)
+			return err
+		}
 	}
 
 	// Wait for all workers to finish
 	wg.Wait()
 
 	fmt.Println("All workers finished")
+
+	return nil
 }
 
 func worker(pool *redis.Pool, wg *sync.WaitGroup) {
@@ -82,9 +126,11 @@ func popFromQueueWithRetry(pool *redis.Pool) (string, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		conn, err := pool.GetContext(ctx)
+
 		if err != nil {
 			return err
 		}
+
 		defer conn.Close()
 
 		// Pop data from Redis queue
@@ -99,13 +145,17 @@ func popFromQueueWithRetry(pool *redis.Pool) (string, error) {
 		}
 
 		// Cast reply to string
-		data, ok := reply.(string)
+		strData, ok := reply.(string)
 		if !ok {
 			return fmt.Errorf("invalid data type in Redis queue")
 		}
 
+		// Assign the string value to data
+		data = strData
+
 		return nil
 	}, backoff.NewExponentialBackOff())
+
 	if err != nil {
 		return "", err
 	}
@@ -126,10 +176,6 @@ func saveToDbWithRetry(pool *redis.Pool, data string) error {
 
 		// Save data to Redis database
 		_, err = conn.Do("SET", dbKey, data)
-
-		if err != nil {
-			return err
-		}
 
 		return nil
 	}, backoff.NewExponentialBackOff())
