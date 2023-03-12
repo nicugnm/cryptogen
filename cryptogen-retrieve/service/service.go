@@ -2,6 +2,7 @@ package service
 
 import (
 	"cryptogen-retrieve/gateways/clients"
+	"fmt"
 	runtime "github.com/banzaicloud/logrus-runtime-formatter"
 	log "github.com/sirupsen/logrus"
 	"os"
@@ -36,7 +37,9 @@ func (s *CryptoService) StartImportService() {
 func (s *CryptoService) ImportData() {
 	start := time.Now()
 
-	nb := make(chan clients.NonBlocking, clients.NUM_REQUESTS)
+	nbType := make(chan clients.CryptoTypeChannel, clients.NUM_REQUESTS)
+	nbMetadata := make(chan clients.CryptoMetadataChannel, clients.NUM_REQUESTS)
+
 	wg := &sync.WaitGroup{}
 
 	requests := clients.ClientsRequests()
@@ -44,11 +47,29 @@ func (s *CryptoService) ImportData() {
 	for i := 0; i < clients.NUM_REQUESTS; i++ {
 		wg.Add(1)
 
-		go requests.RequestCryptoTypes(nb)
+		go requests.RequestCryptoTypes(nbType, wg)
 	}
 
-	go requests.SaveDataToFile(nb, wg)
-	go requests.SaveDataToRepository(nb, wg)
+	// we need to wait all to all goroutines to finish in order to have the correct data
+	// the actual data are the symbols from the cryptocurrency and then use them for the second request to obtain all the data of the cryptocurrencies
+	wg.Wait()
+
+	for i := 0; i < clients.NUM_REQUESTS; i++ {
+		wg.Add(1)
+
+		go requests.RequestCryptoDetails(nbType, nbMetadata, wg)
+	}
+
+	wg.Wait()
+
+	fmt.Println("Start save to file")
+
+	wg.Add(2)
+
+	go requests.SaveTypeToFile(nbType, wg)
+	go requests.SaveMetadataToFile(nbMetadata, wg)
+
+	go requests.SaveDataToRepository(nbMetadata, wg)
 
 	wg.Wait()
 

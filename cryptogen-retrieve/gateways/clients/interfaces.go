@@ -5,9 +5,10 @@ import (
 )
 
 type CryptoRequests interface {
-	RequestCryptoTypes(nb chan NonBlocking)
-	RequestCryptoDetails(nb chan NonBlocking) []*interface{}
+	RequestCryptoTypes(nb chan CryptoTypeChannel, wg *sync.WaitGroup)
+	RequestCryptoDetails(nbType chan CryptoTypeChannel, nbMetadata chan CryptoMetadataChannel, wg *sync.WaitGroup)
 
-	SaveDataToRepository(nb chan NonBlocking, wg *sync.WaitGroup)
-	SaveDataToFile(nb chan NonBlocking, wg *sync.WaitGroup)
+	SaveDataToRepository(nb chan CryptoMetadataChannel, wg *sync.WaitGroup)
+	SaveTypeToFile(nb chan CryptoTypeChannel, wg *sync.WaitGroup)
+	SaveMetadataToFile(nb chan CryptoMetadataChannel, wg *sync.WaitGroup)
 }

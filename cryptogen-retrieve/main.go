@@ -13,7 +13,7 @@ import (
 func main() {
 	importService := service.NewService()
 
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
 	// create a signal channel to listen for SIGINT and SIGTERM signals
@@ -24,7 +24,7 @@ func main() {
 		select {
 		case <-ticker.C:
 			// create a context with a 30-second timeout
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			// defer the cancel function to ensure it gets called
 			defer cancel()
 
@@ -44,7 +44,7 @@ func main() {
 
 func executeFunction(ctx context.Context, importService *service.CryptoService) error {
 	// simulate a long-running operation
-	time.Sleep(20 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	// check if the context has been cancelled
 	select {

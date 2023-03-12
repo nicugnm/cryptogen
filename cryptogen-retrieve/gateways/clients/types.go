@@ -5,12 +5,22 @@ import (
 	"net/http"
 )
 
-type CryptoRequest struct {
-	Status interface{}              `json:"status"`
-	Data   []*domain.CryptoMetadata `json:"data"`
+type CryptoTypeRequest struct {
+	Status interface{}                  `json:"status"`
+	Data   []*domain.CryptoTypeMetadata `json:"data"`
 }
 
-type NonBlocking struct {
+type CryptoMetadataRequest struct {
+	Status interface{}                          `json:"status"`
+	Data   map[string]domain.CryptoDataMetadata `json:"data"`
+}
+
+type CryptoTypeChannel struct {
+	Response *http.Response
+	Error    error
+}
+
+type CryptoMetadataChannel struct {
 	Response *http.Response
 	Error    error
 }
