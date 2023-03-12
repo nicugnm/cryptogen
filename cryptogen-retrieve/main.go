@@ -42,7 +42,7 @@ func main() {
 	}
 }
 
-func executeFunction(ctx context.Context, importService *service.Service) error {
+func executeFunction(ctx context.Context, importService *service.CryptoService) error {
 	// simulate a long-running operation
 	time.Sleep(20 * time.Second)
 

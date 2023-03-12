@@ -20,7 +20,7 @@ type RedisRepo struct {
 	redisPool *redis.Pool
 }
 
-var _ domain.CryptoMetadataStorage = (*RedisRepo)(nil)
+var _ CryptoMetadataStorage = (*RedisRepo)(nil)
 
 func NewRedisRepo() *RedisRepo {
 	return &RedisRepo{

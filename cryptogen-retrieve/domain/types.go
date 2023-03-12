@@ -1,6 +1,8 @@
 package domain
 
-import "time"
+import (
+	"time"
+)
 
 type CryptoMetadata struct {
 	Id                 int64     `json:"id"`
@@ -8,9 +10,4 @@ type CryptoMetadata struct {
 	Symbol             string    `json:"symbol"`
 	Rank               int64     `json:"rank"`
 	LastHistoricalData time.Time `json:"last_historical_data"`
-}
-
-type CryptoRequest struct {
-	Status interface{}       `json:"status"`
-	Data   []*CryptoMetadata `json:"data"`
 }

@@ -9,14 +9,16 @@ import (
 	"time"
 )
 
-type Service struct {
+type CryptoService struct {
 }
 
-func NewService() *Service {
-	return &Service{}
+func NewService() *CryptoService {
+	return &CryptoService{}
 }
 
-func (s *Service) StartImportService() {
+var _ CryptoMetadataService = (*CryptoService)(nil)
+
+func (s *CryptoService) StartImportService() {
 	formatter := runtime.Formatter{ChildFormatter: &log.TextFormatter{
 		FullTimestamp:          true,
 		DisableLevelTruncation: true,
@@ -28,21 +30,25 @@ func (s *Service) StartImportService() {
 
 	log.Printf("Started import data service")
 
-	ImportData()
+	s.ImportData()
 }
 
-func ImportData() {
+func (s *CryptoService) ImportData() {
 	start := time.Now()
 
 	nb := make(chan clients.NonBlocking, clients.NUM_REQUESTS)
 	wg := &sync.WaitGroup{}
 
+	requests := clients.ClientsRequests()
+
 	for i := 0; i < clients.NUM_REQUESTS; i++ {
 		wg.Add(1)
-		go clients.Request(nb)
+
+		go requests.RequestCryptoTypes(nb)
 	}
 
-	go clients.HandleResponse(nb, wg)
+	go requests.SaveDataToFile(nb, wg)
+	go requests.SaveDataToRepository(nb, wg)
 
 	wg.Wait()
 
