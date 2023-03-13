@@ -9,6 +9,6 @@ type CryptoRequests interface {
 	RequestCryptoDetails(nbType chan CryptoTypeChannel, nbMetadata chan CryptoMetadataChannel, wg *sync.WaitGroup)
 
 	SaveDataToRepository(nb chan CryptoMetadataChannel, wg *sync.WaitGroup)
-	SaveTypeToFile(nb chan CryptoTypeChannel, wg *sync.WaitGroup)
-	SaveMetadataToFile(nb chan CryptoMetadataChannel, wg *sync.WaitGroup)
+	//SaveTypeToFile(nb chan CryptoTypeChannel, wg *sync.WaitGroup)
+	//SaveMetadataToFile(nb chan CryptoMetadataChannel, wg *sync.WaitGroup)
 }

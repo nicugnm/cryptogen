@@ -13,7 +13,7 @@ const (
 	queueName      = "crypto_queue"
 	redisUrl       = "localhost:6379"
 	connectionType = "tcp"
-	retryInterval  = time.Second * 5
+	retryInterval  = time.Second * 1
 )
 
 type RedisRepo struct {
@@ -32,7 +32,7 @@ func NewRedisRepo() *RedisRepo {
 	}
 }
 
-func (r *RedisRepo) SaveDataList(metadata []*domain.CryptoMetadata) error {
+func (r *RedisRepo) SaveDataList(metadata []domain.CryptoDataMetadata) error {
 	conn := r.redisPool.Get()
 	defer conn.Close()
 
@@ -82,7 +82,7 @@ func (r *RedisRepo) retry(f func() error) error {
 		case <-ctx.Done():
 			return fmt.Errorf("operation timed out: %v", err)
 		default:
-			time.Sleep(time.Millisecond * 10)
+			time.Sleep(time.Millisecond * 1)
 		}
 	}
 }

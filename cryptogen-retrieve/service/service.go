@@ -2,7 +2,6 @@ package service
 
 import (
 	"cryptogen-retrieve/gateways/clients"
-	"fmt"
 	runtime "github.com/banzaicloud/logrus-runtime-formatter"
 	log "github.com/sirupsen/logrus"
 	"os"
@@ -29,7 +28,7 @@ func (s *CryptoService) StartImportService() {
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.InfoLevel)
 
-	log.Printf("Started import data service")
+	log.Printf("Start importing data..")
 
 	s.ImportData()
 }
@@ -37,37 +36,34 @@ func (s *CryptoService) StartImportService() {
 func (s *CryptoService) ImportData() {
 	start := time.Now()
 
-	nbType := make(chan clients.CryptoTypeChannel, clients.NUM_REQUESTS)
-	nbMetadata := make(chan clients.CryptoMetadataChannel, clients.NUM_REQUESTS)
+	nbType := make(chan clients.CryptoTypeChannel, 1)
+	nbMetadata := make(chan clients.CryptoMetadataChannel, 1)
 
 	wg := &sync.WaitGroup{}
 
 	requests := clients.ClientsRequests()
 
-	for i := 0; i < clients.NUM_REQUESTS; i++ {
-		wg.Add(1)
+	wg.Add(1)
 
-		go requests.RequestCryptoTypes(nbType, wg)
-	}
+	go requests.RequestCryptoTypes(nbType, wg)
 
-	// we need to wait all to all goroutines to finish in order to have the correct data
+	// we need to wait all goroutines to finish in order to have the correct data
 	// the actual data are the symbols from the cryptocurrency and then use them for the second request to obtain all the data of the cryptocurrencies
 	wg.Wait()
 
-	for i := 0; i < clients.NUM_REQUESTS; i++ {
-		wg.Add(1)
+	wg.Add(1)
+	go requests.RequestCryptoDetails(nbType, nbMetadata, wg)
 
-		go requests.RequestCryptoDetails(nbType, nbMetadata, wg)
-	}
-
+	// we need to wait all goroutines to finish in order to have data published to the channels
+	// the actual data will be saved in files and in redis
 	wg.Wait()
 
-	fmt.Println("Start save to file")
+	//fmt.Println("Start save to file")
 
-	wg.Add(2)
+	wg.Add(1)
 
-	go requests.SaveTypeToFile(nbType, wg)
-	go requests.SaveMetadataToFile(nbMetadata, wg)
+	//go requests.SaveTypeToFile(nbType, wg)
+	//go requests.SaveMetadataToFile(nbMetadata, wg)
 
 	go requests.SaveDataToRepository(nbMetadata, wg)
 

@@ -5,5 +5,5 @@ import (
 )
 
 type CryptoMetadataStorage interface {
-	SaveDataList(metadata []*domain.CryptoMetadata) error
+	SaveDataList(metadata []domain.CryptoDataMetadata) error
 }
