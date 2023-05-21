@@ -20,20 +20,37 @@ against_currency = 'USD'
 scaler = MinMaxScaler(feature_range=(0, 1))
 
 # Send message to RabbitMQ
-async def send_to_rabbitmq(message):
-    connection = await aio_pika.connect_robust("amqp://guest:guest@localhost/")
+class RabbitMQConnection:
+    def __init__(self, loop):
+        self.loop = loop
+        self.connection = None
+        self.channel = None
+        self.exchange = None
 
-    async with connection:
-        channel = await connection.channel()
+    async def create_connection(self):
+        self.connection = await aio_pika.connect_robust("amqp://guest:guest@localhost/", loop=self.loop)
+        self.channel = await self.connection.channel()
+        self.exchange = await self.channel.declare_exchange('crypto_exchange', aio_pika.ExchangeType.FANOUT)
 
-        exchange = await channel.declare_exchange('crypto_exchange', aio_pika.ExchangeType.FANOUT)
-
+    async def send_to_rabbitmq(self, message):
         message_json = json.dumps(message)
-        message = aio_pika.Message(body=message_json.encode())
+        msg = aio_pika.Message(body=message_json.encode())
+        await self.exchange.publish(msg, routing_key='')
+        print(" [x] Sent %r" % msg.body)
 
-        await exchange.publish(message, routing_key='crypto_queue')
+    async def close_connection(self):
+        await self.channel.close()
+        await self.connection.close()
 
-        print(" [x] Sent %r" % message.body)
+async def send_message_rabbitmq(predictions_list, actual_prices_list):
+    loop = asyncio.get_event_loop()
+    rabbitmq_conn = RabbitMQConnection(loop)
+    await rabbitmq_conn.create_connection()
+    await rabbitmq_conn.send_to_rabbitmq({
+        'predictions': predictions_list,
+        'actual_prices': actual_prices_list
+    })
+    await rabbitmq_conn.close_connection()
 
 def train_model(symbol):
     model_file = f'{symbol}_model.h5'
@@ -108,17 +125,14 @@ def predict_price(symbol):
     actual_prices_list = actual_prices[-3:].tolist()
 
     # Send predictions and actual prices to RabbitMQ
-    asyncio.run(send_to_rabbitmq({
-        'predictions': predictions_list,
-        'actual_prices': actual_prices_list
-    }))
-
+    asyncio.run(send_message_rabbitmq(predictions_list, actual_prices_list))
     return predictions_list, actual_prices_list
 
 # Define the route for the POST request
 @app.route('/crypto', methods=['POST'])
 def process_request():
     request_data = request.get_json()
+    print(request_data)
     symbol = request_data['symbol']
     train = request_data.get('train', False)
 
